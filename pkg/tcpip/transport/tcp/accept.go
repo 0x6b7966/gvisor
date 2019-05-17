@@ -278,7 +278,7 @@ func (l *listenContext) createEndpointAndPerformHandshake(s *segment, opts *head
 	// listenEP is nil when listenContext is used by tcp.Forwarder.
 	if l.listenEP != nil {
 		l.listenEP.mu.Lock()
-		if l.listenEP.state != StateListen {
+		if l.listenEP.EndpointState() != StateListen {
 			l.listenEP.mu.Unlock()
 			return nil, tcpip.ErrConnectionAborted
 		}
@@ -297,9 +297,10 @@ func (l *listenContext) createEndpointAndPerformHandshake(s *segment, opts *head
 		}
 		return nil, err
 	}
+
 	ep.mu.Lock()
 	ep.stack.Stats().TCP.CurrentEstablished.Increment()
-	ep.state = StateEstablished
+	ep.setEndpointState(StateEstablished)
 	ep.mu.Unlock()
 
 	// Update the receive window scaling. We can't do it before the
@@ -338,11 +339,15 @@ func (l *listenContext) closeAllPendingEndpoints() {
 // instead.
 func (e *endpoint) deliverAccepted(n *endpoint) {
 	e.mu.Lock()
-	state := e.state
+	state := e.EndpointState()
 	e.pendingAccepted.Add(1)
 	defer e.pendingAccepted.Done()
 	acceptedChan := e.acceptedChan
 	e.mu.Unlock()
+
+	// Start the protocol goroutine.
+	wq := &waiter.Queue{}
+	n.startAcceptedLoop(wq)
 	if state == StateListen {
 		acceptedChan <- n
 		e.waiterQueue.Notify(waiter.EventIn)
@@ -538,7 +543,7 @@ func (e *endpoint) handleListenSegment(ctx *listenContext, s *segment) {
 
 		// Switch state to connected.
 		n.stack.Stats().TCP.CurrentEstablished.Increment()
-		n.state = StateEstablished
+		n.setEndpointState(StateEstablished)
 
 		// Do the delivery in a separate goroutine so
 		// that we don't block the listen loop in case
@@ -571,7 +576,7 @@ func (e *endpoint) protocolListenLoop(rcvWnd seqnum.Size) *tcpip.Error {
 		// handleSynSegment() from attempting to queue new connections
 		// to the endpoint.
 		e.mu.Lock()
-		e.state = StateClose
+		e.setEndpointState(StateClose)
 
 		// close any endpoints in SYN-RCVD state.
 		ctx.closeAllPendingEndpoints()

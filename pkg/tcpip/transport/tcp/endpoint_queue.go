@@ -18,18 +18,17 @@ import (
 	"sync"
 )
 
-// segmentQueue is a bounded, thread-safe queue of TCP segments.
-//
-// +stateify savable
-type segmentQueue struct {
-	mu    sync.Mutex  `state:"nosave"`
-	list  segmentList `state:"wait"`
+// endpointQueue is a bounded, thread-safe queue of TCP segments and
+// the endpoint they are bound for.
+type endpointQueue struct {
+	mu    sync.Mutex        `state:"nosave"`
+	list  queueEndpointList `state:"wait"`
 	limit int
 	used  int
 }
 
 // empty determines if the queue is empty.
-func (q *segmentQueue) empty() bool {
+func (q *endpointQueue) empty() bool {
 	q.mu.Lock()
 	r := q.used == 0
 	q.mu.Unlock()
@@ -38,13 +37,11 @@ func (q *segmentQueue) empty() bool {
 }
 
 // setLimit updates the limit. No segments are immediately dropped in case the
-// queue becomes full due to the new limit. Returns the older limit.
-func (q *segmentQueue) setLimit(limit int) int {
+// queue becomes full due to the new limit.
+func (q *endpointQueue) setLimit(limit int) {
 	q.mu.Lock()
-	l := q.limit
 	q.limit = limit
 	q.mu.Unlock()
-	return l
 }
 
 // enqueue adds the given segment to the queue.
@@ -53,7 +50,7 @@ func (q *segmentQueue) setLimit(limit int) int {
 // case ownership of the reference is transferred to the queue. And returns
 // false if the queue is full, in which case ownership is retained by the
 // caller.
-func (q *segmentQueue) enqueue(s *segment) bool {
+func (q *endpointQueue) enqueue(s *queueEndpoint) bool {
 	q.mu.Lock()
 	r := q.used < q.limit
 	if r {
@@ -65,10 +62,10 @@ func (q *segmentQueue) enqueue(s *segment) bool {
 	return r
 }
 
-// dequeue removes and returns the next segment from queue, if one exists.
-// Ownership is transferred to the caller, who is responsible for decrementing
-// the ref count when done.
-func (q *segmentQueue) dequeue() *segment {
+// dequeue removes and returns the next queueEndpoint from queue, if one
+// exists.  Ownership is transferred to the caller, who is responsible for
+// decrementing the ref count when done.
+func (q *endpointQueue) dequeue() *queueEndpoint {
 	q.mu.Lock()
 	s := q.list.Front()
 	if s != nil {
