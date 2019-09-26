@@ -461,3 +461,13 @@ func (o NDPPrefixInformation) PreferredLifetime() time.Duration {
 func (o NDPPrefixInformation) Prefix() tcpip.Address {
 	return tcpip.Address(o[ndpPrefixInformationPrefixOffset:][:IPv6AddressSize])
 }
+
+// Subnet returns the Prefix field and Prefix Length field represented in a
+// tcpip.Subnet.
+func (o NDPPrefixInformation) Subnet() tcpip.Subnet {
+	addrWithPrefix := tcpip.AddressWithPrefix{
+		Address:   o.Prefix(),
+		PrefixLen: int(o.PrefixLength()),
+	}
+	return addrWithPrefix.Subnet()
+}
