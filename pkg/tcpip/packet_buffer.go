@@ -31,6 +31,10 @@ type PacketBuffer struct {
 	// or otherwise modified.
 	Data buffer.VectorisedView
 
+	// Header holds the headers of outbound packets. As a packet is passed
+	// down the stack, each layer adds to Header.
+	Header buffer.Prependable
+
 	// The bytes backing these views are immutable. Each field may be nil
 	// if either it has not been set yet or no such header exists (e.g.
 	// packets sent via loopback may not have a link header).

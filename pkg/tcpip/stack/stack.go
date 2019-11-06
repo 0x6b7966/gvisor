@@ -1369,7 +1369,7 @@ func (s *Stack) WritePacket(nicID tcpip.NICID, dst tcpip.LinkAddress, netProto t
 	ethHeader := buffer.View(fakeHeader).ToVectorisedView()
 	ethHeader.Append(payload)
 
-	if err := nic.linkEP.WriteRawPacket(ethHeader); err != nil {
+	if err := nic.linkEP.WriteRawPacket(tcpip.PacketBuffer{Data: ethHeader}); err != nil {
 		return err
 	}
 
@@ -1386,7 +1386,7 @@ func (s *Stack) WriteRawPacket(nicID tcpip.NICID, payload buffer.VectorisedView)
 		return tcpip.ErrUnknownDevice
 	}
 
-	if err := nic.linkEP.WriteRawPacket(payload); err != nil {
+	if err := nic.linkEP.WriteRawPacket(tcpip.PacketBuffer{Data: payload}); err != nil {
 		return err
 	}
 
