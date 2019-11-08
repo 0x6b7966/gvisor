@@ -17,7 +17,6 @@ package p9
 import (
 	"fmt"
 	"io"
-	"runtime"
 	"sync/atomic"
 	"syscall"
 
@@ -49,9 +48,6 @@ func (c *Client) newFile(fid FID) *clientFile {
 		client: c,
 		fid:    fid,
 	}
-
-	// Make sure the file is closed.
-	runtime.SetFinalizer(cf, (*clientFile).Close)
 
 	return cf
 }
@@ -192,7 +188,6 @@ func (c *clientFile) Remove() error {
 	if !atomic.CompareAndSwapUint32(&c.closed, 0, 1) {
 		return syscall.EBADF
 	}
-	runtime.SetFinalizer(c, nil)
 
 	// Send the remove message.
 	if err := c.client.sendRecv(&Tremove{FID: c.fid}, &Rremove{}); err != nil {
@@ -214,7 +209,6 @@ func (c *clientFile) Close() error {
 	if !atomic.CompareAndSwapUint32(&c.closed, 0, 1) {
 		return syscall.EBADF
 	}
-	runtime.SetFinalizer(c, nil)
 
 	// Send the close message.
 	if err := c.client.sendRecv(&Tclunk{FID: c.fid}, &Rclunk{}); err != nil {
