@@ -587,6 +587,14 @@ func (i *inodeOperations) SetTimestamps(ctx context.Context, inode *fs.Inode, ts
 
 // Truncate implements fs.InodeOperations.Truncate.
 func (i *inodeOperations) Truncate(ctx context.Context, inode *fs.Inode, length int64) error {
+	// Only regular files can be truncated.
+	if fs.IsDir(inode.StableAttr) {
+		return syserror.EISDIR
+	}
+	if !fs.IsRegular(inode.StableAttr) {
+		return syserror.EINVAL
+	}
+
 	// This can only be called for files anyway.
 	if i.session().cachePolicy.useCachingInodeOps(inode) {
 		return i.cachingInodeOps.Truncate(ctx, inode, length)

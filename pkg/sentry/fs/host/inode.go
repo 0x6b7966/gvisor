@@ -392,6 +392,14 @@ func (i *inodeOperations) SetTimestamps(ctx context.Context, inode *fs.Inode, ts
 
 // Truncate implements fs.InodeOperations.Truncate.
 func (i *inodeOperations) Truncate(ctx context.Context, inode *fs.Inode, size int64) error {
+	// Only regular files can be truncated.
+	if fs.IsDir(inode.StableAttr) {
+		return syserror.EISDIR
+	}
+	if !fs.IsRegular(inode.StableAttr) {
+		return syserror.EINVAL
+	}
+
 	// Is the file not memory-mappable?
 	if !canMap(inode) {
 		// Then just change the file size on the FD, the host
